@@ -1,5 +1,14 @@
 # 🗺️ Leaflet City Autocomplete USA
 
+[![npm version](https://img.shields.io/npm/v/leaflet-city-autocomplete-usa.svg)](https://www.npmjs.com/package/leaflet-city-autocomplete-usa)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Leaflet](https://img.shields.io/badge/Leaflet-Plugin-199900?logo=leaflet&logoColor=white)](https://leafletjs.com/plugins.html)
+[![Demo](https://img.shields.io/badge/Live%20Demo-Online-blue)](https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/)
+
+<p align="center">
+  <img src="https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/screenshot.jpg" alt="Leaflet City Autocomplete USA Demo" width="800"/>
+</p>
+
 A lightweight **Leaflet plugin** that adds an **autocomplete search control for all U.S. cities** using official **U.S. Census Gazetteer** data.
 
 This plugin allows you to search any U.S. city by name, automatically fly the map to its coordinates, and optionally show a marker and popup with the city information.
@@ -133,7 +142,7 @@ Clicking it:
 
 You can view a live example at:
 
-🔗 [GitHub Pages Demo](https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo)
+🔗 [GitHub Pages Demo](https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/)
 
 Or run it locally:
 
@@ -164,7 +173,3 @@ License: **MIT**
 
 Contributions and pull requests are welcome!  
 If you find bugs or want to improve the search, open an issue on GitHub.
-
-# leaflet-city-autocomplete-usa
-Leaflet plugin adding an autocomplete control for 32k+ U.S. cities (Census Gazetteer). FlyTo, marker, popup, timezone.
-
