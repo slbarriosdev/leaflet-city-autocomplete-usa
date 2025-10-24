@@ -6,7 +6,7 @@
 [![Demo](https://img.shields.io/badge/Live%20Demo-Online-blue)](https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/)
 
 <p align="center">
-  <img src="https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/screenshot.jpg" alt="Leaflet City Autocomplete USA Demo" width="800"/>
+  <img src="https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/screenshot.JPG" alt="Leaflet City Autocomplete USA Demo" width="800"/>
 </p>
 
 A lightweight **Leaflet plugin** that adds an **autocomplete search control for all U.S. cities** using official **U.S. Census Gazetteer** data.
