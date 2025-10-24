@@ -1,0 +1,21 @@
+
+{
+  "name": "leaflet-city-autocomplete-usa",
+  "version": "1.2.0",
+  "description": "A Leaflet plugin that adds an autocomplete control for all U.S. cities using the U.S. Census Gazetteer dataset.",
+  "main": "dist/leaflet.cityAutocompleteUSA.js",
+  "style": "dist/leaflet.cityAutocompleteUSA.css",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slbarriosdev/leaflet-city-autocomplete-usa.git"
+  },
+  "keywords": ["leaflet", "plugin", "autocomplete", "usa", "map", "control"],
+  "author": "Sergio Barrios",
+  "license": "MIT",
+  "dependencies": {
+    "leaflet": "^1.9.0"
+  }
+}

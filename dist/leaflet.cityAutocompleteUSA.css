@@ -1,0 +1,94 @@
+.leaflet-city-autocomplete-usa {
+  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 300px;
+  box-sizing: border-box;
+}
+
+.leaflet-city-autocomplete-usa input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 30px 8px 12px; 
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  outline: none;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 4px;
+}
+
+.leaflet-city-autocomplete-usa input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 3px rgba(0, 123, 255, 0.5);
+}
+
+.clear-btn {
+  position: absolute;
+  right: 16px;
+  top: 40%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: red;
+  cursor: pointer;
+  display: none;
+  transition: color 0.2s;
+}
+
+.clear-btn:hover {
+  color: #ff4d4d;
+}
+
+.autocomplete-suggestions {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+}
+
+.autocomplete-suggestions li {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s ease-in-out;
+}
+
+.autocomplete-suggestions li:hover,
+.autocomplete-suggestions li.selected {
+  background: #f2f6ff;
+  color: #0056b3;
+  font-weight: 500;
+}
+
+.autocomplete-suggestions strong {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.leaflet-top.leaflet-right {
+  right: 50% !important;
+  transform: translateX(50%);
+}
+
+@media (max-width: 600px) {
+  .leaflet-city-autocomplete-usa {
+    width: 90%;
+    max-width: 320px;
+  }
+  .leaflet-top.leaflet-right {
+    right: 50% !important;
+    transform: translateX(50%);
+  }
+}
