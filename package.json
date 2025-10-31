@@ -6,7 +6,7 @@
   "style": "dist/leaflet.cityAutocompleteUSA.css",
   "files": [
     "dist",
-	"data",
+    "data",
     "README.md",
     "LICENSE"
   ],
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/slbarriosdev/leaflet-city-autocomplete-usa.git"
+    "url": "git+https://github.com/slbarriosdev/leaflet-city-autocomplete-usa.git"
   },
   "keywords": [
     "leaflet",
