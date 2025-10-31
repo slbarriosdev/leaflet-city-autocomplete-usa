@@ -1,126 +1,172 @@
 /*!
- * Leaflet.CityAutocompleteUSA v1.2.2
+ * Leaflet.CityAutocompleteUSA v1.3.0
  * Author: Sergio Barrios
  * License: MIT
  */
-(function () {
-  if (typeof window === "undefined" || typeof window.L === "undefined") {
-    console.error("❌ Leaflet must be loaded before leaflet.cityAutocompleteUSA.js");
-    return;
-  }
 
-  const L = window.L;
+L.CityAutocompleteUSA = L.Control.extend({
+  options: {
+    position: "topright",
+    placeholder: "Search city, state, or ZIP...",
+    dataUrl: "./data/us_states_with_cities.json" 
+  },
 
+  onAdd: function (map) {
+    const container = L.DomUtil.create("div", "leaflet-city-autocomplete-usa");
+    L.DomEvent.disableClickPropagation(container);
 
-  L.Control.CityAutocompleteUSA = L.Control.extend({
-    options: {
-      position: "topright",
-      placeholder: "Search a U.S. city...",
-      minLength: 2,
-      maxSuggestions: 10,
-      zoomLevel: 10,
-      flyTo: true,
-      showMarker: true,
-      showPopup: true,
-      citiesData: []
-    },
+    const input = L.DomUtil.create("input", "", container);
+    input.type = "text";
+    input.placeholder = this.options.placeholder;
 
-    initialize: function (options) {
-      L.Util.setOptions(this, options);
-      this._cities = this.options.citiesData || [];
-      this._selectedIndex = -1;
-    },
+    const clearBtn = L.DomUtil.create("span", "clear-btn", container);
+    clearBtn.innerHTML = "×";
 
-    onAdd: function (map) {
-      this._map = map;
-      const container = L.DomUtil.create("div", "leaflet-city-autocomplete-usa");
-      const input = L.DomUtil.create("input", "", container);
-      input.type = "text";
-      input.placeholder = this.options.placeholder;
-      const list = L.DomUtil.create("ul", "autocomplete-suggestions", container);
+    const list = L.DomUtil.create("ul", "autocomplete-suggestions", container);
+    list.style.display = "none";
 
-      L.DomEvent.disableClickPropagation(container);
-      L.DomEvent.on(input, "input", this._debounce(this._onInput.bind(this), 150));
-      L.DomEvent.on(input, "keydown", this._onKeyDown.bind(this));
+    this._map = map;
+    this._input = input;
+    this._list = list;
+    this._clearBtn = clearBtn;
+    this._data = [];
 
-      document.addEventListener("click", (e) => {
-        if (!container.contains(e.target)) list.innerHTML = "";
+    this._loadData();
+    this._setupEvents();
+
+    return container;
+  },
+
+  async _loadData() {
+    try {
+      const res = await fetch(this.options.dataUrl);
+      const states = await res.json();
+      const all = [];
+
+      states.forEach((state) => {
+        state.cities.forEach((city) => {
+          all.push({
+            state: state.state,
+            stateName: state.name,
+            city: city.city,
+            zip: city.zip,
+            lat: city.lat,
+            lon: city.lon,
+            timezone: city.timezone
+          });
+        });
       });
 
-      this._input = input;
-      this._list = list;
-      container.appendChild(list);
- 
-      return container;
-    },
-
-    _debounce(fn, delay) {
-      let timeout;
-      return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => fn.apply(this, args), delay);
-      };
-    },
-
-    _onInput() {
-      const val = this._input.value.trim().toLowerCase();
-      this._list.innerHTML = "";
-      this._selectedIndex = -1;
-      if (val.length < this.options.minLength) return;
-
-      const matches = this._cities
-        .filter((c) => c.city && c.city.toLowerCase().includes(val))
-        .slice(0, this.options.maxSuggestions);
-
-      matches.forEach((c) => {
-        const li = document.createElement("li");
-        li.textContent = `${c.city}, ${c.state}`;
-        li.onclick = () => this._selectCity(c);
-        this._list.appendChild(li);
-      });
-    },
-
-    _onKeyDown(e) {
-      const items = this._list.querySelectorAll("li");
-      if (!items.length) return;
-      if (e.key === "ArrowDown") {
-        this._selectedIndex = (this._selectedIndex + 1) % items.length;
-      } else if (e.key === "ArrowUp") {
-        this._selectedIndex = (this._selectedIndex - 1 + items.length) % items.length;
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        if (this._selectedIndex >= 0) items[this._selectedIndex].click();
-      } else return;
-
-      items.forEach((it, i) =>
-        it.classList.toggle("selected", i === this._selectedIndex)
-      );
-    },
-
-    _selectCity(c) {
-      const coords = [c.lat, c.lon];
-      if (this.options.flyTo) this._map.flyTo(coords, this.options.zoomLevel);
-      else this._map.setView(coords, this.options.zoomLevel);
-
-      if (this.options.showMarker) {
-        if (this._marker) this._map.removeLayer(this._marker);
-        this._marker = L.marker(coords).addTo(this._map);
-      }
-
-      if (this.options.showPopup) {
-        L.popup()
-          .setLatLng(coords)
-          .setContent(`<strong>${c.city}</strong>, ${c.state}<br>${c.timezone}`)
-          .openOn(this._map);
-      }
-
-      this._input.value = `${c.city}, ${c.state}`;
-      this._list.innerHTML = "";
+      this._data = all;
+      console.log(`✅ Loaded ${all.length} locations`);
+    } catch (err) {
+      console.error("❌ Error loading data:", err);
     }
-  });
+  },
 
-  L.control.cityAutocompleteUSA = function (opts) {
-    return new L.Control.CityAutocompleteUSA(opts);
-  };
+  _setupEvents() {
+    this._input.addEventListener("input", (e) => this._onInput(e));
+    this._input.addEventListener("keydown", (e) => this._onKeyDown(e));
+    this._clearBtn.addEventListener("click", () => this._clearInput());
+  },
 
-})();
+  _onInput(e) {
+    const value = e.target.value.trim().toLowerCase();
+    this._list.innerHTML = "";
+
+    if (value.length === 0) {
+      this._list.style.display = "none";
+      this._clearBtn.style.display = "none";
+      return;
+    }
+
+    this._clearBtn.style.display = "block";
+
+    const results = this._data
+      .filter(
+        (r) =>
+          r.city.toLowerCase().includes(value) ||
+          r.state.toLowerCase().includes(value) ||
+          r.stateName.toLowerCase().includes(value) ||
+          r.zip.includes(value)
+      )
+      .slice(0, 25);
+
+    if (results.length === 0) {
+      this._list.style.display = "none";
+      return;
+    }
+
+    results.forEach((r, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${r.city}</strong>, ${r.stateName} <small>${r.zip}</small>`;
+      li.addEventListener("click", () => this._selectResult(r));
+      if (i === 0) li.classList.add("selected");
+      this._list.appendChild(li);
+    });
+
+    this._list.style.display = "block";
+  },
+
+  _onKeyDown(e) {
+    const items = this._list.querySelectorAll("li");
+    if (!items.length) return;
+
+    const current = this._list.querySelector(".selected");
+    let index = Array.from(items).indexOf(current);
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        index = (index + 1) % items.length;
+        items.forEach((li) => li.classList.remove("selected"));
+        items[index].classList.add("selected");
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        index = (index - 1 + items.length) % items.length;
+        items.forEach((li) => li.classList.remove("selected"));
+        items[index].classList.add("selected");
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (current) {
+          const result = this._data.find(
+            (r) =>
+              `${r.city}, ${r.stateName} ${r.zip}` === current.textContent.trim()
+          );
+          if (result) this._selectResult(result);
+          else current.click();
+        }
+        break;
+    }
+  },
+
+  _selectResult(result) {
+    this._input.value = `${result.city}, ${result.stateName} ${result.zip}`;
+    this._list.style.display = "none";
+    this._clearBtn.style.display = "block";
+
+    const lat = parseFloat(result.lat);
+    const lon = parseFloat(result.lon);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      this._map.setView([lat, lon], 10);
+      L.marker([lat, lon])
+        .addTo(this._map)
+        .bindPopup(
+          `<b>${result.city}, ${result.stateName}</b><br>ZIP: ${result.zip}<br>Timezone: ${result.timezone}`
+        )
+        .openPopup();
+    }
+  },
+
+  _clearInput() {
+    this._input.value = "";
+    this._list.style.display = "none";
+    this._clearBtn.style.display = "none";
+  }
+});
+
+L.cityAutocompleteUSA = function (options) {
+  return new L.CityAutocompleteUSA(options);
+};

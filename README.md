@@ -9,15 +9,15 @@
   <img src="https://slbarriosdev.github.io/leaflet-city-autocomplete-usa/demo/screenshot.JPG" alt="Leaflet City Autocomplete USA Demo" width="800"/>
 </p>
 
-A lightweight **Leaflet plugin** that adds an **autocomplete search control for all U.S. cities** using official **U.S. Census Gazetteer** data.
+A lightweight **Leaflet plugin** that adds an **autocomplete search control for all U.S. cities, states, and ZIP codes** using official **U.S. Census Gazetteer** data.
 
-This plugin allows you to search any U.S. city by name, automatically fly the map to its coordinates, and optionally show a marker and popup with the city information.
+This plugin allows you to search any U.S. city, state, or ZIP code, automatically fly the map to its coordinates, and optionally show a marker and popup with location information.
 
 ---
 
 ## 🚀 Features
 
-- 🔍 Autocomplete for **32,000+ U.S. cities**
+- 🔍 Autocomplete for **32,000+ U.S. cities, states, and ZIP codes**
 - 📍 Displays **marker + popup** on selection
 - 🧭 Smooth **fly-to** animation
 - 🌎 Built-in **timezone** info for each city
@@ -93,8 +93,8 @@ Here’s a complete example you can use directly in your project:
       attribution: "© OpenStreetMap contributors"
     }).addTo(map);
 
-    // Load city data and initialize the autocomplete control
-    fetch("node_modules/leaflet-city-autocomplete-usa/data/us_cities.min.json")
+    // Load location data and initialize the autocomplete control
+    fetch("node_modules/leaflet-city-autocomplete-usa/data/us_states_with_cities.json")
       .then(res => res.json())
       .then(data => {
         const control = L.control.cityAutocompleteUSA({
@@ -118,13 +118,13 @@ Here’s a complete example you can use directly in your project:
 | Option | Type | Default | Description |
 |--------|------|----------|-------------|
 | `position` | `string` | `"topright"` | Control position on the map |
-| `placeholder` | `string` | `"Search a U.S. city..."` | Input placeholder text |
+| `placeholder` | `string` | `"Search city, state, or ZIP..."` | Input placeholder text |
 | `minLength` | `number` | `2` | Minimum characters before search starts |
-| `maxSuggestions` | `number` | `10` | Max number of suggestions displayed |
-| `flyTo` | `boolean` | `true` | Animate map to city position |
-| `showMarker` | `boolean` | `true` | Show a marker on city selection |
-| `showPopup` | `boolean` | `true` | Show popup with city + state + timezone |
-| `zoomLevel` | `number` | `10` | Zoom level after selecting a city |
+| `maxSuggestions` | `number` | `25` | Max number of suggestions displayed |
+| `flyTo` | `boolean` | `true` | Animate map to location position |
+| `showMarker` | `boolean` | `true` | Show a marker on selection |
+| `showPopup` | `boolean` | `true` | Show popup with city + state + ZIP + timezone |
+| `zoomLevel` | `number` | `10` | Zoom level after selecting a location |
 
 ---
 

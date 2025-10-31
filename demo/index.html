@@ -12,10 +12,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Plugin CSS -->
-  <link
-    rel="stylesheet"
-    href="../dist/leaflet.cityAutocompleteUSA.css"
-  />
+  <link rel="stylesheet" href="../dist/leaflet.cityAutocompleteUSA.css" />
 
   <style>
     #map {
@@ -39,65 +36,13 @@
       attribution: "© OpenStreetMap contributors"
     }).addTo(map);
 
-   fetch("../data/us_cities.min.json")
-      .then((res) => res.json())
-      .then((data) => {
-        const control = L.control.cityAutocompleteUSA({
-          citiesData: data,
-          flyTo: true,
-          showMarker: true,
-          showPopup: true
-        });
-        control.addTo(map);
-      })
-      .catch((err) => console.error("❌ Error loading data:", err));
+    // Load plugin with new dataset
+    const control = L.cityAutocompleteUSA({
+      dataUrl: "../data/us_states_with_cities.json", // dataset
+      placeholder: "Search city, state, or ZIP..."
+    });
+
+    control.addTo(map);
   </script>
-  <script>
-  // 🔧 Espera a que Leaflet agregue el buscador antes de insertar el botón "❌"
-  const observer = new MutationObserver(() => {
-    const input = document.querySelector(".leaflet-city-autocomplete-usa input");
-    if (input && !document.querySelector(".clear-btn")) {
-      const clearBtn = document.createElement("span");
-      clearBtn.textContent = "✖";
-      clearBtn.className = "clear-btn";
-      input.parentElement.appendChild(clearBtn);
-
-      input.addEventListener("input", () => {
-        clearBtn.style.display = input.value.length ? "block" : "none";
-      });
-
-      clearBtn.addEventListener("click", () => {
-        input.value = "";
-        clearBtn.style.display = "none";
-        input.focus();
-
-        // Limpia sugerencias si hay
-        const list = document.querySelector(".autocomplete-suggestions");
-        if (list) list.innerHTML = "";
-
-        // 🔁 Restablece el mapa a su vista inicial (EE. UU.)
-        if (window.map) {
-          map.flyTo([39.8283, -98.5795], 5, { duration: 1 });
-          if (map._popup) map.closePopup();
-          if (map._layers) {
-            // Elimina marcador si existe
-            Object.values(map._layers).forEach((layer) => {
-              if (layer instanceof L.Marker) map.removeLayer(layer);
-            });
-          }
-        }
-      });
-
-      console.log("✅ Clear button added");
-      observer.disconnect();
-    }
-  });
-
-  // Observa el DOM hasta que aparezca el buscador
-  observer.observe(document.body, { childList: true, subtree: true });
-</script>
-
-
-
 </body>
 </html>
