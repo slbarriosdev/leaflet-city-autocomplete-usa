@@ -1,5 +1,5 @@
 /*!
- * Leaflet.CityAutocompleteUSA v1.3.0
+ * Leaflet.CityAutocompleteUSA v1.2.2
  * Author: Sergio Barrios
  * License: MIT
  */
@@ -8,7 +8,7 @@ L.CityAutocompleteUSA = L.Control.extend({
   options: {
     position: "topright",
     placeholder: "Search city, state, or ZIP...",
-    dataUrl: "./data/us_states_with_cities.json" 
+    dataUrl: "./data/us_states_with_cities.json"
   },
 
   onAdd: function (map) {
@@ -30,9 +30,12 @@ L.CityAutocompleteUSA = L.Control.extend({
     this._list = list;
     this._clearBtn = clearBtn;
     this._data = [];
+    this._marker = null;
+    this._userLocationMarker = null; 
 
     this._loadData();
     this._setupEvents();
+    this._addLocateButton(); 
 
     return container;
   },
@@ -99,7 +102,7 @@ L.CityAutocompleteUSA = L.Control.extend({
 
     results.forEach((r, i) => {
       const li = document.createElement("li");
-      li.innerHTML = `<strong>${r.city}</strong>, ${r.stateName} <small>${r.zip}</small>`;
+      li.innerHTML = `<strong>${r.city}</strong>, ${r.state} <small>${r.zip}</small>`;
       li.addEventListener("click", () => this._selectResult(r));
       if (i === 0) li.classList.add("selected");
       this._list.appendChild(li);
@@ -118,45 +121,51 @@ L.CityAutocompleteUSA = L.Control.extend({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        index = (index + 1) % items.length;
+        if (index < items.length - 1) index++;
+        else index = 0;
         items.forEach((li) => li.classList.remove("selected"));
         items[index].classList.add("selected");
         break;
       case "ArrowUp":
         e.preventDefault();
-        index = (index - 1 + items.length) % items.length;
+        if (index > 0) index--;
+        else index = items.length - 1;
         items.forEach((li) => li.classList.remove("selected"));
         items[index].classList.add("selected");
         break;
       case "Enter":
         e.preventDefault();
-        if (current) {
-          const result = this._data.find(
-            (r) =>
-              `${r.city}, ${r.stateName} ${r.zip}` === current.textContent.trim()
-          );
-          if (result) this._selectResult(result);
-          else current.click();
-        }
+        if (current) current.click();
         break;
     }
   },
 
   _selectResult(result) {
-    this._input.value = `${result.city}, ${result.stateName} ${result.zip}`;
+    this._input.value = `${result.city}, ${result.state} ${result.zip}`;
     this._list.style.display = "none";
     this._clearBtn.style.display = "block";
 
     const lat = parseFloat(result.lat);
     const lon = parseFloat(result.lon);
+
+   
+    if (this._userLocationMarker) {
+      this._map.removeLayer(this._userLocationMarker);
+      this._userLocationMarker = null;
+    }
+
+    
+    if (this._marker) this._map.removeLayer(this._marker);
+
     if (!isNaN(lat) && !isNaN(lon)) {
-      this._map.setView([lat, lon], 10);
-      L.marker([lat, lon])
+      this._marker = L.marker([lat, lon])
         .addTo(this._map)
         .bindPopup(
-          `<b>${result.city}, ${result.stateName}</b><br>ZIP: ${result.zip}<br>Timezone: ${result.timezone}`
+          `<b>${result.city}, ${result.state}</b><br>ZIP: ${result.zip}<br>Timezone: ${result.timezone}`
         )
         .openPopup();
+
+      this._map.setView([lat, lon], 10);
     }
   },
 
@@ -164,6 +173,57 @@ L.CityAutocompleteUSA = L.Control.extend({
     this._input.value = "";
     this._list.style.display = "none";
     this._clearBtn.style.display = "none";
+  },
+
+  
+  _addLocateButton() {
+    const locateBtn = L.DomUtil.create("button", "leaflet-locate-btn");
+    locateBtn.title = "Go to my location";
+    locateBtn.innerHTML = "📍";
+    locateBtn.style.cssText = `
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 32px;
+      height: 32px;
+      font-size: 18px;
+      cursor: pointer;
+      position: absolute;
+      left: 10px;  
+      top: 82px;   
+      z-index: 999;
+    `;
+
+    locateBtn.onclick = () => {
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported by your browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+
+          
+          if (this._marker) this._map.removeLayer(this._marker);
+          if (this._userLocationMarker)
+            this._map.removeLayer(this._userLocationMarker);
+
+          
+          this._userLocationMarker = L.circleMarker([latitude, longitude], {
+            radius: 4,
+            color: "#007bff",
+            fillColor: "#007bff",
+            fillOpacity: 0.9
+          }).addTo(this._map);
+
+          this._map.setView([latitude, longitude], 12);
+        },
+        () => alert("Unable to retrieve your location.")
+      );
+    };
+
+    this._map.getContainer().appendChild(locateBtn);
   }
 });
 
