@@ -1,92 +1,250 @@
+/* =====================================================================
+   Leaflet.CityAutocompleteUSA v1.3.0
+   ===================================================================== */
+
+/* ── CSS variables (light defaults) ── */
+.leaflet-city-autocomplete-usa {
+  --lca-bg:          #ffffff;
+  --lca-bg-input:    #ffffff;
+  --lca-bg-hover:    #f0f6ff;
+  --lca-border:      #d0d5dd;
+  --lca-shadow:      rgba(0, 0, 0, 0.12);
+  --lca-text:        #1a1a1a;
+  --lca-text-muted:  #6b7280;
+  --lca-accent:      #1a73e8;
+  --lca-accent-dim:  rgba(26, 115, 232, 0.12);
+  --lca-badge-bg:    #eef2f7;
+  --lca-badge-text:  #4b5563;
+  --lca-radius:      8px;
+  --lca-radius-sm:   5px;
+}
+
+/* ── Dark mode via class ── */
+.leaflet-city-autocomplete-usa.lca-dark {
+  --lca-bg:          #1e2030;
+  --lca-bg-input:    #252840;
+  --lca-bg-hover:    #2a2f4a;
+  --lca-border:      #3a3f5c;
+  --lca-shadow:      rgba(0, 0, 0, 0.45);
+  --lca-text:        #e2e8f0;
+  --lca-text-muted:  #8892a4;
+  --lca-accent:      #5b9cf6;
+  --lca-accent-dim:  rgba(91, 156, 246, 0.15);
+  --lca-badge-bg:    #2d3250;
+  --lca-badge-text:  #94a3b8;
+}
+
+/* ── Auto dark mode (respects OS preference unless .lca-light is set) ── */
+@media (prefers-color-scheme: dark) {
+  .leaflet-city-autocomplete-usa:not(.lca-light) {
+    --lca-bg:          #1e2030;
+    --lca-bg-input:    #252840;
+    --lca-bg-hover:    #2a2f4a;
+    --lca-border:      #3a3f5c;
+    --lca-shadow:      rgba(0, 0, 0, 0.45);
+    --lca-text:        #e2e8f0;
+    --lca-text-muted:  #8892a4;
+    --lca-accent:      #5b9cf6;
+    --lca-accent-dim:  rgba(91, 156, 246, 0.15);
+    --lca-badge-bg:    #2d3250;
+    --lca-badge-text:  #94a3b8;
+  }
+}
+
+/* ── Container ── */
 .leaflet-city-autocomplete-usa {
   position: relative;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 6px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 300px;
+  background: var(--lca-bg);
+  border-radius: var(--lca-radius);
+  box-shadow: 0 2px 12px var(--lca-shadow);
+  padding: 7px;
+  width: 320px;
   box-sizing: border-box;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--lca-text);
 }
 
-.leaflet-city-autocomplete-usa input {
+/* ── Top row: input + locate button ── */
+.lca-top-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Input wrapper ── */
+.lca-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.lca-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--lca-text-muted);
+  display: flex;
+  pointer-events: none;
+  line-height: 0;
+}
+
+.lca-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 30px 8px 12px; 
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  outline: none;
+  padding: 8px 30px 8px 32px;
+  background: var(--lca-bg-input);
+  border: 1.5px solid var(--lca-border);
+  border-radius: var(--lca-radius-sm);
+  color: var(--lca-text);
   font-size: 14px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  margin-bottom: 4px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
 }
 
-.leaflet-city-autocomplete-usa input:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 3px rgba(0, 123, 255, 0.5);
+.lca-input::placeholder {
+  color: var(--lca-text-muted);
 }
 
-.clear-btn {
+.lca-input:focus {
+  border-color: var(--lca-accent);
+  box-shadow: 0 0 0 3px var(--lca-accent-dim);
+}
+
+/* ── Clear button (inside input) ── */
+.lca-clear-btn {
   position: absolute;
-  right: 16px;
-  top: 40%;
-  transform: translateY(-50%);
-  font-size: 16px;
-  color: red;
+  right: 5px;
+  background: none;
+  border: none;
+  padding: 3px 5px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--lca-text-muted);
   cursor: pointer;
-  display: none;
-  transition: color 0.2s;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
 }
 
-.clear-btn:hover {
-  color: #ff4d4d;
+.lca-clear-btn:hover {
+  color: var(--lca-text);
+  background: var(--lca-bg-hover);
 }
 
-.autocomplete-suggestions {
+/* ── Locate button ── */
+.lca-locate-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lca-bg-input);
+  border: 1.5px solid var(--lca-border);
+  border-radius: var(--lca-radius-sm);
+  color: var(--lca-text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+
+.lca-locate-btn:hover {
+  border-color: var(--lca-accent);
+  color: var(--lca-accent);
+  background: var(--lca-accent-dim);
+}
+
+/* ── Suggestions dropdown ── */
+.lca-suggestions {
   list-style: none;
   margin: 6px 0 0;
-  padding: 0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: white;
-  max-height: 200px;
+  padding: 4px 0;
+  background: var(--lca-bg);
+  border: 1.5px solid var(--lca-border);
+  border-radius: var(--lca-radius-sm);
+  max-height: 240px;
   overflow-y: auto;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
+  box-shadow: 0 6px 20px var(--lca-shadow);
 }
 
-.autocomplete-suggestions li {
-  padding: 6px 10px;
+.lca-suggestions li {
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 14px;
-  transition: background 0.15s ease-in-out;
+  transition: background 0.1s;
 }
 
-.autocomplete-suggestions li:hover,
-.autocomplete-suggestions li.selected {
-  background: #f2f6ff;
-  color: #0056b3;
-  font-weight: 500;
+.lca-suggestions li + li {
+  border-top: 1px solid var(--lca-border);
 }
 
-.autocomplete-suggestions strong {
-  color: #007bff;
+.lca-suggestions li:hover,
+.lca-suggestions li.selected {
+  background: var(--lca-bg-hover);
+}
+
+/* ── Suggestion content ── */
+.lca-suggestion-main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--lca-text);
+}
+
+.lca-suggestion-main strong {
+  color: var(--lca-accent);
   font-weight: 600;
 }
 
+.lca-place-type {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--lca-badge-text);
+  background: var(--lca-badge-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.lca-suggestion-meta {
+  font-size: 12px;
+  color: var(--lca-text-muted);
+  margin-top: 2px;
+}
+
+/* ── No-results item ── */
+.lca-no-results {
+  padding: 10px 12px;
+  color: var(--lca-text-muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.lca-no-results:hover {
+  background: transparent !important;
+}
+
+/* ── Custom marker icon (DivIcon) ── */
+.lca-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ── Position: center when topright (default behavior) ── */
 .leaflet-top.leaflet-right {
   right: 50% !important;
   transform: translateX(50%);
 }
 
+/* ── Responsive ── */
 @media (max-width: 600px) {
   .leaflet-city-autocomplete-usa {
-    width: 90%;
-    max-width: 320px;
+    width: min(90vw, 320px);
   }
+
   .leaflet-top.leaflet-right {
     right: 50% !important;
     transform: translateX(50%);

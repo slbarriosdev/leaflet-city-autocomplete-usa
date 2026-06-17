@@ -137,3 +137,12 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Claude Code
+.claude/
+
+# GeoNames raw data file
+US.txt
+
+# Test files
+demo/test-screenshot.html

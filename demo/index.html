@@ -2,44 +2,90 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Leaflet City Autocomplete USA - Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leaflet City Autocomplete USA v1.3.0 - Demo</title>
 
-  <!-- Leaflet core -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Plugin CSS -->
   <link rel="stylesheet" href="../dist/leaflet.cityAutocompleteUSA.css" />
 
   <style>
-    #map {
-      width: 100%;
-      height: 600px;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; }
+    #map { width: 100%; height: 100vh; }
+
+    #info {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      max-width: 280px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
     }
+    #info h3 { margin-bottom: 6px; font-size: 14px; color: #1a73e8; }
+    #info p { color: #555; line-height: 1.5; }
+    #selected-info { margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; display: none; }
+    #selected-info strong { color: #1a1a1a; }
   </style>
 </head>
 
 <body>
   <div id="map"></div>
 
-  <!-- Plugin JS -->
+  <div id="info">
+    <h3>Leaflet City Autocomplete USA v1.3.0</h3>
+    <p>Search by city name, state name, state abbreviation, or ZIP code.</p>
+    <div id="selected-info"></div>
+  </div>
+
   <script src="../dist/leaflet.cityAutocompleteUSA.js"></script>
 
   <script>
-    // Initialize map
-    const map = L.map("map").setView([39.8283, -98.5795], 5);
+    const map = L.map('map').setView([39.8283, -98.5795], 5);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors"
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Load plugin with new dataset
+    const selectedInfo = document.getElementById('selected-info');
+
     const control = L.cityAutocompleteUSA({
-      dataUrl: "../data/us_states_with_cities.json", // dataset
-      placeholder: "Search city, state, or ZIP..."
+      dataUrl: '../data/us_states_with_cities.json',
+      placeholder: 'Search city, state, or ZIP...',
+
+      // Marker customization (mejora 4)
+      showMarker: true,
+      markerColor: '#1a73e8',
+
+      // Data display (mejora 7)
+      cleanCityNames: true,
+      showPlaceType: true,
+
+      // Callbacks (mejora 3)
+      onSelect: function (result) {
+        const name = result.cleanCity + ', ' + result.state;
+        const lines = ['<strong>' + name + '</strong>'];
+        if (result.county) lines.push('County: ' + result.county);
+        lines.push('ZIP: ' + result.zip);
+        if (result.population) lines.push('Pop.: ' + Number(result.population).toLocaleString());
+        lines.push('Timezone: ' + result.timezone);
+        selectedInfo.innerHTML = lines.join('<br>');
+        selectedInfo.style.display = 'block';
+      },
+
+      onClear: function () {
+        selectedInfo.style.display = 'none';
+      },
+
+      onLocate: function (latlng) {
+        console.log('User location:', latlng);
+      },
     });
 
     control.addTo(map);
