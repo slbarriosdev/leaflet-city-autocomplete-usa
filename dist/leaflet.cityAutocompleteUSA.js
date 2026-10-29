@@ -1,5 +1,5 @@
 /*!
- * Leaflet.CityAutocompleteUSA v1.3.0
+ * Leaflet.CityAutocompleteUSA v1.4.0
  * Author: Sergio Barrios
  * License: MIT
  */
@@ -27,6 +27,69 @@
     return t.toUpperCase() === 'CDP' ? 'CDP' : t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
   }
 
+  var ABBREVIATIONS = { st: 'saint', ste: 'sainte', ft: 'fort', mt: 'mount', pt: 'point' };
+
+  // Lowercase, strip accents and punctuation, expand St./Ft./Mt.… so "St. Louis",
+  // "Saint Louis" and "st louis" all compare equal. keepLast leaves the last word
+  // unexpanded while the user is still typing it ("st" may become "sterling").
+  function _normalize(s, keepLast) {
+    var words = s.toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/['’.]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .split(' ');
+    var last = keepLast ? words.length - 1 : words.length;
+    for (var i = 0; i < last; i++) {
+      if (ABBREVIATIONS[words[i]]) words[i] = ABBREVIATIONS[words[i]];
+    }
+    return words.join(' ');
+  }
+
+  // Edit distance (with transpositions) between `a` and the closest prefix of `b`.
+  // Returns max + 1 as soon as it is clear the distance exceeds `max`.
+  function _prefixDistance(a, b, max) {
+    var m = a.length;
+    var n = Math.min(b.length, m + max);
+    if (n < m - max) return max + 1;
+
+    var prev2 = null;
+    var prev = [];
+    for (var j = 0; j <= n; j++) prev[j] = j;
+
+    for (var i = 1; i <= m; i++) {
+      var cur = [i];
+      var rowMin = i;
+      for (j = 1; j <= n; j++) {
+        var cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+        var v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+        if (prev2 && j > 1 && a.charCodeAt(i - 1) === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)) {
+          v = Math.min(v, prev2[j - 2] + 1);
+        }
+        cur[j] = v;
+        if (v < rowMin) rowMin = v;
+      }
+      if (rowMin > max) return max + 1;
+      prev2 = prev;
+      prev = cur;
+    }
+
+    var best = max + 1;
+    for (var k = Math.max(0, m - max); k <= n; k++) {
+      if (prev[k] < best) best = prev[k];
+    }
+    return best;
+  }
+
+  function _haversineMiles(lat1, lon1, lat2, lon2) {
+    var toRad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * toRad;
+    var dLon = (lon2 - lon1) * toRad;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
   var SEARCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
   var LOCATE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>';
 
@@ -47,6 +110,10 @@
       onSelect: null,
       onClear: null,
       onLocate: null,
+      // reverse lookup ("what's here?")
+      reverseOnClick: false,
+      reverseMaxMiles: 25,
+      onReverse: null,
     },
 
     onAdd: function (map) {
@@ -86,14 +153,25 @@
       this._list = list;
       this._clearBtn = clearBtn;
       this._data = [];
+      this._norm = [];
       this._states = new Set();
+      this._stateNames = {};
+      this._stateByName = {};
       this._marker = null;
       this._userLocationMarker = null;
 
       this._loadData();
       this._setupEvents(clearBtn, locateBtn);
 
+      if (this.options.reverseOnClick) {
+        map.on('click', this._onMapClick, this);
+      }
+
       return container;
+    },
+
+    onRemove: function (map) {
+      map.off('click', this._onMapClick, this);
     },
 
     _loadData: async function () {
@@ -121,8 +199,20 @@
           });
         });
 
+        var stateNames = {};
+        var stateByName = {};
+        states.forEach(function (state) {
+          var abbr = state.state.toLowerCase();
+          var name = _normalize(state.name);
+          stateNames[abbr] = name;
+          stateByName[name] = abbr;
+        });
+
         this._data = all;
+        this._norm = all.map(function (r) { return _normalize(r.cleanCity); });
         this._states = new Set(all.map(function (r) { return r.state.toLowerCase(); }));
+        this._stateNames = stateNames;
+        this._stateByName = stateByName;
       } catch (err) {
         console.error('Leaflet CityAutocompleteUSA: failed to load data', err);
       }
@@ -186,16 +276,59 @@
     },
 
     _filterAndRank: function (query) {
-      var q = query.toLowerCase();
+      var q = _normalize(query, true);
+      if (!q) return [];
+
       var isNumeric = /^\d+$/.test(q);
       var isExactState = !isNumeric && q.length === 2 && this._states.has(q);
+
+      // "austin tx", "austin, texas", "saint paul mn" → city + state filter
+      if (!isNumeric && !isExactState) {
+        var split = this._splitState(query, q);
+        if (split) {
+          var withState = this._rank(q, split.city, split.filter, false, false);
+          if (withState.length) return withState;
+        }
+      }
+
+      return this._rank(q, q, null, isNumeric, isExactState);
+    },
+
+    _splitState: function (raw, q) {
+      var comma = raw.indexOf(',');
+      if (comma !== -1) {
+        var cityPart = _normalize(raw.slice(0, comma));
+        if (!cityPart) return null;
+        return { city: cityPart, filter: { prefix: _normalize(raw.slice(comma + 1), true) } };
+      }
+
+      // Longest state name first, so "west virginia" is never read as "west" + VA
+      var words = q.split(' ');
+      for (var n = Math.min(3, words.length); n >= 1; n--) {
+        var tail = words.slice(-n).join(' ');
+        var abbr = this._stateByName[tail] || (n === 1 && this._states.has(tail) ? tail : null);
+        if (abbr) {
+          var rest = words.slice(0, -n).join(' ');
+          return rest ? { city: rest, filter: { abbr: abbr } } : null;
+        }
+      }
+      return null;
+    },
+
+    _stateMatches: function (stateAbbr, filter) {
+      if (filter.abbr) return stateAbbr === filter.abbr;
+      return !filter.prefix || stateAbbr === filter.prefix || this._stateNames[stateAbbr].startsWith(filter.prefix);
+    },
+
+    _rank: function (q, cityQ, stateFilter, isNumeric, isExactState) {
+      var maxEdits = cityQ.length >= 8 ? 2 : cityQ.length >= 5 ? 1 : 0;
+      var first = cityQ.charAt(0);
+      var second = cityQ.charAt(1);
       var scored = [];
 
       for (var i = 0; i < this._data.length; i++) {
         var r = this._data[i];
-        var city = r.cleanCity.toLowerCase();
         var stateAbbr = r.state.toLowerCase();
-        var stateName = r.stateName.toLowerCase();
         var score = 0;
 
         if (isNumeric) {
@@ -204,14 +337,26 @@
         } else if (isExactState) {
           if (stateAbbr === q) score = 100;
         } else {
-          if (city === q) score += 100;
-          else if (city.startsWith(q)) score += 70;
-          else if (city.includes(q)) score += 40;
+          if (stateFilter && !this._stateMatches(stateAbbr, stateFilter)) continue;
 
-          if (stateAbbr === q) score += 50;
-          else if (stateName === q) score += 50;
-          else if (stateName.startsWith(q)) score += 20;
-          else if (stateName.includes(q)) score += 5;
+          var city = this._norm[i];
+          if (city === cityQ) score += 100;
+          else if (city.startsWith(cityQ)) score += 70;
+          else if (city.includes(cityQ)) score += 40;
+          else if (maxEdits && (city.charAt(0) === first || city.charAt(0) === second)) {
+            // Typo tolerance, always ranked below real matches. The first letter
+            // (or a swap of the first two) must be right, which keeps this fast.
+            var d = _prefixDistance(cityQ, city, maxEdits);
+            if (d <= maxEdits) score += 30 - 10 * (d - 1);
+          }
+
+          if (!stateFilter) {
+            var stateName = this._stateNames[stateAbbr];
+            if (stateAbbr === q) score += 50;
+            else if (stateName === q) score += 50;
+            else if (stateName.startsWith(q)) score += 20;
+            else if (stateName.includes(q)) score += 5;
+          }
         }
 
         if (score > 0) scored.push({ r: r, score: score });
@@ -342,6 +487,71 @@
       );
     },
 
+    findNearest: function (latlng) {
+      latlng = L.latLng(latlng);
+      var lat = latlng.lat;
+      var lon = latlng.lng;
+      var cosLat = Math.cos(lat * Math.PI / 180);
+      var best = null;
+      var bestD = Infinity;
+
+      // Equirectangular distance is enough to rank candidates
+      for (var i = 0; i < this._data.length; i++) {
+        var r = this._data[i];
+        var dLat = parseFloat(r.lat) - lat;
+        var dLon = (parseFloat(r.lon) - lon) * cosLat;
+        var d = dLat * dLat + dLon * dLon;
+        if (d < bestD) { bestD = d; best = r; }
+      }
+
+      if (!best) return null;
+      return { result: best, miles: _haversineMiles(lat, lon, parseFloat(best.lat), parseFloat(best.lon)) };
+    },
+
+    _onMapClick: function (e) {
+      if (!this._data.length) return;
+
+      var self = this;
+      var found = this.findNearest(e.latlng);
+      if (found && found.miles > this.options.reverseMaxMiles) found = null;
+
+      var content = L.DomUtil.create('div', 'lca-reverse');
+
+      if (found) {
+        var r = found.result;
+        var displayName = this.options.cleanCityNames ? r.cleanCity : r.city;
+        var lines = ['<div class="lca-reverse-label">Nearest place</div>',
+          '<b>' + displayName + ', ' + r.state + '</b> ' + r.zip];
+        if (r.county) lines.push('<br>' + r.county + ' County');
+        lines.push('<div class="lca-reverse-dist">' + found.miles.toFixed(1) + ' mi away</div>');
+        content.innerHTML = lines.join('');
+
+        var goBtn = L.DomUtil.create('button', 'lca-reverse-btn', content);
+        goBtn.type = 'button';
+        goBtn.textContent = 'Go here';
+        goBtn.addEventListener('click', function () {
+          self._map.closePopup();
+          self._selectResult(r);
+        });
+      } else {
+        content.innerHTML = '<div class="lca-reverse-label">No U.S. location within ' +
+          this.options.reverseMaxMiles + ' mi</div>';
+      }
+
+      L.popup({ className: 'lca-reverse-popup' })
+        .setLatLng(e.latlng)
+        .setContent(content)
+        .openOn(this._map);
+
+      if (typeof this.options.onReverse === 'function') {
+        this.options.onReverse({
+          latlng: e.latlng,
+          result: found ? found.result : null,
+          miles: found ? found.miles : null,
+        });
+      }
+    },
+
     _createMarkerIcon: function (color) {
       return L.divIcon({
         className: 'lca-marker-icon',
@@ -355,6 +565,141 @@
 
   L.cityAutocompleteUSA = function (options) {
     return new L.CityAutocompleteUSA(options);
+  };
+
+  // ── Map style switcher ─────────────────────────────────────────────────────
+
+  var LAYERS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
+
+  var OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  var ESRI_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+  var ESRI_CANVAS_ATTR = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+
+  var MAP_STYLES = [
+    { id: 'streets', name: 'Streets', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      options: { maxZoom: 19, attribution: OSM_ATTR } },
+    { id: 'light', name: 'Light', url: ESRI_URL + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ESRI_CANVAS_ATTR } },
+    { id: 'dark', name: 'Dark', dark: true, url: ESRI_URL + 'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ESRI_CANVAS_ATTR } },
+    { id: 'detailed', name: 'Detailed', url: ESRI_URL + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, NGA, EPA, USDA, NPS' } },
+    { id: 'satellite', name: 'Satellite', dark: true, url: ESRI_URL + 'World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
+    { id: 'terrain', name: 'Terrain', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      options: { maxZoom: 17, attribution: OSM_ATTR + ', SRTM | &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)' } },
+  ];
+
+  // Tile z4/x3/y6 covers the southern-central U.S. and the Gulf — used as the thumbnail.
+  function _previewUrl(style) {
+    if (style.preview) return style.preview;
+    var data = L.extend({ s: 'a', r: '' }, style.options, { z: 4, x: 3, y: 6 });
+    return L.Util.template(style.url, data);
+  }
+
+  L.MapStyleSwitcher = L.Control.extend({
+    options: {
+      position: 'bottomright',
+      styles: null,            // custom list; defaults to the built-in styles
+      defaultStyle: 'streets',
+      collapsed: true,
+      searchControl: null,     // a CityAutocompleteUSA control to switch to dark mode on dark styles
+      onChange: null,
+    },
+
+    onAdd: function (map) {
+      var self = this;
+      var container = L.DomUtil.create('div', 'leaflet-map-style-switcher');
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+
+      var toggle = L.DomUtil.create('button', 'lms-toggle', container);
+      toggle.type = 'button';
+      toggle.title = 'Map style';
+      toggle.innerHTML = LAYERS_ICON;
+
+      var panel = L.DomUtil.create('div', 'lms-panel', container);
+
+      this._map = map;
+      this._container = container;
+      this._styles = this.options.styles || MAP_STYLES;
+      this._buttons = {};
+      this._layer = null;
+      this._current = null;
+
+      this._styles.forEach(function (style) {
+        var btn = L.DomUtil.create('button', 'lms-option', panel);
+        btn.type = 'button';
+        btn.title = style.name;
+        btn.innerHTML = '<img src="' + _previewUrl(style) + '" alt="" loading="lazy"><span>' + style.name + '</span>';
+        btn.addEventListener('click', function () {
+          self.setStyle(style.id);
+          if (self.options.collapsed) self._collapse();
+        });
+        self._buttons[style.id] = btn;
+      });
+
+      if (this.options.collapsed) {
+        toggle.addEventListener('click', function () { self._expand(); });
+        map.on('click', this._collapse, this);
+      } else {
+        L.DomUtil.addClass(container, 'lms-expanded');
+      }
+
+      this.setStyle(this.options.defaultStyle || this._styles[0].id);
+
+      return container;
+    },
+
+    onRemove: function (map) {
+      map.off('click', this._collapse, this);
+      if (this._layer) map.removeLayer(this._layer);
+      this._layer = null;
+      this._current = null;
+    },
+
+    setStyle: function (id) {
+      var style = this._styles.filter(function (s) { return s.id === id; })[0];
+      if (!style || !this._map || style.id === this._current) return this;
+
+      if (this._layer) this._map.removeLayer(this._layer);
+      this._layer = L.tileLayer(style.url, style.options || {}).addTo(this._map);
+      this._layer.bringToBack();
+
+      if (this._current) L.DomUtil.removeClass(this._buttons[this._current], 'lms-active');
+      L.DomUtil.addClass(this._buttons[style.id], 'lms-active');
+      this._current = style.id;
+
+      var search = this.options.searchControl;
+      var searchEl = search && search.getContainer();
+      if (searchEl) {
+        searchEl.classList.toggle('lca-dark', !!style.dark);
+        searchEl.classList.toggle('lca-light', !style.dark);
+      }
+
+      if (typeof this.options.onChange === 'function') {
+        this.options.onChange(style);
+      }
+      return this;
+    },
+
+    getStyle: function () {
+      return this._current;
+    },
+
+    _expand: function () {
+      L.DomUtil.addClass(this._container, 'lms-expanded');
+    },
+
+    _collapse: function () {
+      L.DomUtil.removeClass(this._container, 'lms-expanded');
+    },
+  });
+
+  L.MapStyleSwitcher.STYLES = MAP_STYLES;
+
+  L.mapStyleSwitcher = function (options) {
+    return new L.MapStyleSwitcher(options);
   };
 
   return L.CityAutocompleteUSA;

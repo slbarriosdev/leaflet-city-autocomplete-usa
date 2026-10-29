@@ -1,6 +1,6 @@
 {
   "name": "leaflet-city-autocomplete-usa",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A Leaflet plugin that adds an autocomplete control for all U.S. cities, states, and ZIP codes using U.S. Census Gazetteer data.",
   "main": "dist/leaflet.cityAutocompleteUSA.js",
   "module": "dist/leaflet.cityAutocompleteUSA.esm.js",

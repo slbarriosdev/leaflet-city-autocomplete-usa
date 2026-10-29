@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leaflet City Autocomplete USA v1.3.0 - Demo</title>
+  <title>Leaflet City Autocomplete USA v1.4.0 - Demo</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -39,8 +39,9 @@
   <div id="map"></div>
 
   <div id="info">
-    <h3>Leaflet City Autocomplete USA v1.3.0</h3>
+    <h3>Leaflet City Autocomplete USA v1.4.0</h3>
     <p>Search by city name, state name, state abbreviation, or ZIP code.</p>
+    <p>Click anywhere on the map to see the nearest place.</p>
     <div id="selected-info"></div>
   </div>
 
@@ -48,10 +49,6 @@
 
   <script>
     const map = L.map('map').setView([39.8283, -98.5795], 5);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
 
     const selectedInfo = document.getElementById('selected-info');
 
@@ -86,9 +83,25 @@
       onLocate: function (latlng) {
         console.log('User location:', latlng);
       },
+
+      // Reverse lookup: click the map to see the nearest place
+      reverseOnClick: true,
+      reverseMaxMiles: 25,
+      onReverse: function (info) {
+        console.log('Nearest place:', info.result, info.miles);
+      },
     });
 
     control.addTo(map);
+
+    // Map style switcher (adds the base tile layer itself)
+    L.mapStyleSwitcher({
+      defaultStyle: 'streets',
+      searchControl: control,
+      onChange: function (style) {
+        console.log('Map style:', style.id);
+      },
+    }).addTo(map);
   </script>
 </body>
 </html>

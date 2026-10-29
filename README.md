@@ -11,7 +11,9 @@
 
 A lightweight **Leaflet plugin** that adds an autocomplete search control for **50,000+ U.S. cities, towns, and ZIP codes** using U.S. Census and GeoNames data.
 
-Search by city name, full state name, state abbreviation, or ZIP code. The map flies to the result and drops a customizable marker with a popup.
+Search by city name, full state name, state abbreviation, or ZIP code. The map flies to the result and drops a customizable marker with a popup. Optionally, click the map to find the nearest place, or let users switch between six base map styles.
+
+Everything runs in the browser against the bundled dataset — **no geocoding service and no API key**.
 
 ---
 
@@ -19,11 +21,14 @@ Search by city name, full state name, state abbreviation, or ZIP code. The map f
 
 - **50,000+ locations** — cities, towns, CDPs, villages, boroughs across all 50 states + DC and territories
 - **Smart search ranking** — exact matches appear first, then starts-with, then contains; state abbreviation search (`CA`, `TX`) returns only that state's cities
+- **Forgiving search** — `st louis` finds Saint Louis, `canon city` finds Cañon City, `austin tx` filters by state, and small typos like `springfeild` still match (see [Search Tips](#search-tips))
+- **What's here?** — click the map to see the nearest city and ZIP (opt-in)
+- **Map style switcher** — Streets, Light, Dark, Detailed, Satellite and Terrain, no API key (opt-in)
 - **County info** — county name shown in suggestions and popups when available
 - **Clean city names** — strips Census suffixes ("city", "CDP", "town") from display; badge shows the place type
 - **Customizable marker** — set any color via `markerColor`, pass full Leaflet options via `markerOptions`, or disable with `showMarker: false`
 - **Built-in geolocation** — locate button sits inline next to the search input
-- **Event callbacks** — `onSelect`, `onClear`, `onLocate`
+- **Event callbacks** — `onSelect`, `onClear`, `onLocate`, `onReverse`
 - **Dark mode** — automatic via `prefers-color-scheme`, or manual with `.lca-dark` / `.lca-light`
 - **ESM + UMD** — works as a `<script>` tag, `require()`, or ES module `import`
 - **Zero extra dependencies** — only Leaflet
@@ -90,6 +95,27 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 L.cityAutocompleteUSA({ dataUrl: "/data/us_states_with_cities.json" }).addTo(map);
 ```
 
+Named exports are also available:
+
+```js
+import { cityAutocompleteUSA, mapStyleSwitcher } from "leaflet-city-autocomplete-usa";
+```
+
+### All features enabled
+
+```js
+const map = L.map("map").setView([39.8283, -98.5795], 5);
+
+const search = L.cityAutocompleteUSA({
+  dataUrl: "/data/us_states_with_cities.json",
+  reverseOnClick: true,             // click the map → nearest city and ZIP
+}).addTo(map);
+
+L.mapStyleSwitcher({                // adds the base map itself — no L.tileLayer needed
+  searchControl: search,            // search box follows dark map styles
+}).addTo(map);
+```
+
 ---
 
 ## Options
@@ -108,6 +134,9 @@ L.cityAutocompleteUSA({ dataUrl: "/data/us_states_with_cities.json" }).addTo(map
 | `onSelect` | `function` | `null` | Called when a result is selected — receives the full result object |
 | `onClear` | `function` | `null` | Called when the input is cleared |
 | `onLocate` | `function` | `null` | Called after geolocation succeeds — receives `{ lat, lng }` |
+| `reverseOnClick` | `boolean` | `false` | Click the map to show the nearest place (see [What's Here?](#whats-here-reverse-lookup)) |
+| `reverseMaxMiles` | `number` | `25` | Max distance for a reverse lookup match |
+| `onReverse` | `function` | `null` | Called after a map click lookup — receives `{ latlng, result, miles }` |
 
 ---
 
@@ -134,9 +163,40 @@ L.cityAutocompleteUSA({
 
   onLocate: function ({ lat, lng }) {
     console.log("User is at", lat, lng);
+  },
+
+  onReverse: function ({ latlng, result, miles }) {
+    // only with reverseOnClick: true — result is null when nothing is within reverseMaxMiles
+    console.log("Clicked near", result && result.cleanCity, miles);
   }
 }).addTo(map);
 ```
+
+---
+
+## What's Here? (reverse lookup)
+
+Click anywhere on the map to see the nearest city and ZIP code, with a **Go here** button that selects it. Works offline against the bundled dataset — no geocoding API.
+
+```js
+L.cityAutocompleteUSA({
+  dataUrl: "/data/us_states_with_cities.json",
+  reverseOnClick: true,
+  reverseMaxMiles: 25,          // farther than this → "No U.S. location"
+  onReverse: function ({ latlng, result, miles }) {
+    if (result) console.log(result.cleanCity, result.zip, miles.toFixed(1) + " mi");
+  }
+}).addTo(map);
+```
+
+You can also call it from code:
+
+```js
+const nearest = control.findNearest([30.2672, -97.7431]);
+// → { result: { city: "Austin", state: "TX", zip: "78713", ... }, miles: 0.0 }
+```
+
+`findNearest` returns `null` until the dataset has finished loading.
 
 ---
 
@@ -178,6 +238,72 @@ control.getContainer().classList.add("lca-dark");
 // Force light (ignore OS preference)
 control.getContainer().classList.add("lca-light");
 ```
+
+---
+
+## Map Style Switcher
+
+A separate control that lets users change the base map style. It shows thumbnail previews and manages the tile layer for you, so you don't need to add your own `L.tileLayer`.
+
+```js
+const search = L.cityAutocompleteUSA({ dataUrl: "..." }).addTo(map);
+
+L.mapStyleSwitcher({
+  defaultStyle: "streets",
+  searchControl: search,   // optional: search box switches to dark mode on dark styles
+  onChange: (style) => console.log(style.id),
+}).addTo(map);
+```
+
+Built-in styles (no API key required):
+
+| id | Provider |
+|----|----------|
+| `streets` | OpenStreetMap |
+| `light` | Esri World Light Gray |
+| `dark` | Esri World Dark Gray |
+| `detailed` | Esri World Street Map |
+| `satellite` | Esri World Imagery |
+| `terrain` | OpenTopoMap |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `position` | `string` | `'bottomright'` | Control position |
+| `styles` | `array` | built-in list | Custom styles: `{ id, name, url, options, dark?, preview? }` |
+| `defaultStyle` | `string` | `'streets'` | Style `id` loaded on start |
+| `collapsed` | `boolean` | `true` | Show a button that expands the panel; `false` keeps it open |
+| `searchControl` | `L.CityAutocompleteUSA` | `null` | Toggles `.lca-dark` / `.lca-light` on the search box to match the style |
+| `onChange` | `function` | `null` | Called with the selected style object |
+
+Methods: `setStyle(id)`, `getStyle()`. The built-in list is available as `L.MapStyleSwitcher.STYLES` if you want to extend it:
+
+```js
+L.mapStyleSwitcher({
+  styles: [
+    ...L.MapStyleSwitcher.STYLES,
+    { id: "humanitarian", name: "HOT", url: "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+      options: { attribution: "&copy; OpenStreetMap contributors" } },
+  ],
+}).addTo(map);
+```
+
+> **About the free tile providers:** the built-in styles need no API key, but each provider has a fair-use policy and requires attribution (added automatically). They are fine for small and medium sites; for high-traffic apps, use your own tile provider through the `styles` option — including providers that need a key, e.g. `url: "https://.../{z}/{x}/{y}?access_token=YOUR_TOKEN"`.
+
+---
+
+## Search Tips
+
+The search is forgiving — users don't need to type names exactly as the Census writes them.
+
+| User types | Finds | Why |
+|-----------|-------|-----|
+| `st louis`, `St. Louis` | Saint Louis, MO | `St.` / `Ste.` / `Ft.` / `Mt.` / `Pt.` match `Saint` / `Sainte` / `Fort` / `Mount` / `Point` both ways |
+| `canon city`, `pinon hills` | Cañon City, CO · Piñon Hills, CA | Accents and apostrophes are ignored |
+| `austin tx`, `austin texas` | Austin, TX only | A trailing state abbreviation or name filters by state |
+| `portland, me` | Portland, ME only | After a comma, the state can be partial (`austin, te`) |
+| `springfeild`, `mimai` | Springfield · Miami | Typos: 1 mistake allowed from 5 letters, 2 from 8 (first letter must be right) |
+
+Exact matches always rank above typo matches.
 
 ---
 
@@ -238,6 +364,14 @@ npm start
 ---
 
 ## Changelog
+
+### v1.4.0
+- Forgiving search: St./Saint, Ft./Fort, Mt./Mount equivalence; accent-insensitive; "city state" and "city, state" queries; typo tolerance
+- "What's here?" reverse lookup: `reverseOnClick`, `reverseMaxMiles`, `onReverse`, and `findNearest(latlng)`
+- New `L.mapStyleSwitcher()` control: Streets, Light, Dark, Detailed, Satellite and Terrain base maps with thumbnail previews, no API key
+- Optional dark-mode sync between the map style and the search control
+- ESM named exports: `MapStyleSwitcher`, `mapStyleSwitcher`
+- Fully backward compatible — new features are opt-in, existing options behave the same
 
 ### v1.3.0
 - Dataset expanded to 50,000+ locations (added 18,000+ ZIP codes from GeoNames)
